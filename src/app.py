@@ -5,20 +5,26 @@ import plotly.graph_objs as go
 import pandas as pd
 import os
 import logging
+from functools import lru_cache
+
+# Rename logging flag to avoid conflict with logging module
+enable_logging = False
 
 # Logging setup
-logging.basicConfig(
-    filename=os.path.normpath(os.getcwd() + os.sep + os.pardir) + '/data/dash_debug.log',
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s',
-)
+if enable_logging:
+    logging.basicConfig(
+        filename=os.path.abspath(os.path.join(os.getcwd(), '..', 'data', 'dash_debug.log')),
+        level=logging.INFO,
+        format='%(asctime)s [%(levelname)s] %(message)s',
+    )
 
 def log(msg):
     print(msg, flush=True)
-    logging.info(msg)
+    if enable_logging:
+        logging.info(msg)
 
 # Constants
-CSV_PATH = os.path.normpath(os.getcwd() + os.sep + os.pardir) + '/data/data.csv'
+CSV_PATH = os.path.abspath(os.path.join(os.getcwd(), '..', 'data', 'data.csv'))
 SENSOR_COLUMNS = [
     'deposition rate (A/sec)',
     'power (%)',
@@ -32,6 +38,19 @@ SENSOR_COLUMNS = [
 
 MAX_POINTS = 100  # Limit points to plot per sensor
 
+# Cache CSV reading to avoid multiple file reads in a short time
+@lru_cache(maxsize=1)
+def read_csv_cached():
+    if not os.path.exists(CSV_PATH):
+        log(f"CSV file not found: {CSV_PATH}")
+        return None
+    df = pd.read_csv(CSV_PATH)
+    df.columns = df.columns.str.strip()
+    if 'timestamp' not in df.columns:
+        log("CSV is missing 'timestamp' column.")
+        return None
+    return df.tail(MAX_POINTS)
+
 # Dash setup
 app = dash.Dash(__name__)
 app.title = "40 Inch Data"
@@ -39,7 +58,7 @@ app.title = "40 Inch Data"
 app.layout = html.Div([
     html.H1("40 Inch Data", style={'textAlign': 'center'}),
 
-    dcc.Interval(id='interval-component', interval=1000, n_intervals=0),
+    dcc.Interval(id='interval-component', interval=5000, n_intervals=0),
 
     html.Div([
         html.Div([
@@ -49,24 +68,17 @@ app.layout = html.Div([
     ], style={'padding': '20px'})
 ])
 
-# Callback to update all 8 graphs with zoom persistence
 @app.callback(
     [Output(f'graph-{i}', 'figure') for i in range(8)],
     Input('interval-component', 'n_intervals'),
     [State(f'graph-{i}', 'relayoutData') for i in range(8)]
 )
 def update_graphs(n, *relayout_data_list):
-    if not os.path.exists(CSV_PATH):
-        log(f"CSV file not found: {CSV_PATH}")
-        return [go.Figure().update_layout(title=SENSOR_COLUMNS[i]) for i in range(8)]
+    df = read_csv_cached()
 
-    df = pd.read_csv(CSV_PATH)
-    df.columns = df.columns.str.strip()
-    if 'timestamp' not in df.columns:
-        log("CSV is missing 'timestamp' column.")
-        return [go.Figure().update_layout(title=f"{col} (Missing timestamp)") for col in SENSOR_COLUMNS]
-
-    df = df.tail(MAX_POINTS)
+    if df is None:
+        # Return empty plots with titles indicating missing data
+        return [go.Figure().update_layout(title=f"{col} (No data)") for col in SENSOR_COLUMNS]
 
     figures = []
     for i, col in enumerate(SENSOR_COLUMNS):
@@ -103,7 +115,6 @@ def update_graphs(n, *relayout_data_list):
                 if layout_args:
                     fig.update_layout(**layout_args)
 
-
             fig.update_layout(title=col.capitalize(), margin=dict(l=30, r=10, t=40, b=30))
         else:
             fig.update_layout(title=f"{col} (Missing)")
@@ -112,6 +123,6 @@ def update_graphs(n, *relayout_data_list):
 
     return figures
 
-# Run the Dash app
+
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=8050)
