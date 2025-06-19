@@ -81,15 +81,28 @@ def update_graphs(n, *relayout_data_list):
                 name=col
             ))
 
-            if relayout and 'xaxis.range[0]' in relayout:
-                fig.update_layout(
-                    xaxis=dict(
+            if relayout:
+                layout_args = {}
+
+                if 'xaxis.range[0]' in relayout and 'xaxis.range[1]' in relayout:
+                    layout_args['xaxis'] = dict(
                         range=[
                             relayout['xaxis.range[0]'],
                             relayout['xaxis.range[1]']
                         ]
                     )
-                )
+
+                if 'yaxis.range[0]' in relayout and 'yaxis.range[1]' in relayout:
+                    layout_args['yaxis'] = dict(
+                        range=[
+                            relayout['yaxis.range[0]'],
+                            relayout['yaxis.range[1]']
+                        ]
+                    )
+
+                if layout_args:
+                    fig.update_layout(**layout_args)
+
 
             fig.update_layout(title=col.capitalize(), margin=dict(l=30, r=10, t=40, b=30))
         else:
