@@ -4,18 +4,40 @@ from dash.dependencies import Input, Output
 import plotly.graph_objs as go
 import pandas as pd
 import os
+import logging
+
+logging.basicConfig(
+    filename= os.path.normpath(os.getcwd() + os.sep + os.pardir) + '/data/dash_debug.log',
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+)
+
+def log(msg):
+    print(msg, flush=True)
+    logging.info(msg)
+
 
 # Constants
-CSV_PATH = '../data/data.csv'
-SENSOR_COLUMNS = [f'sensor{i+1}' for i in range(8)]
+CSV_PATH = os.path.normpath(os.getcwd() + os.sep + os.pardir) + '/data/data.csv'
+SENSOR_COLUMNS = [
+    'deposition rate (A/sec)',
+    'power (%)',
+    'pressure (mTorr)',
+    'temperature (C)',
+    'crystal (kA)',
+    'anode current (amp)',
+    'neutralization current (amp)',
+    'gas flow (sccm)',
+]
+
 MAX_POINTS = 100  # Limit points to plot per sensor
 
 # Dash setup
 app = dash.Dash(__name__)
-app.title = "Live CSV Sensor Dashboard"
+app.title = "40 Inch Data"
 
 app.layout = html.Div([
-    html.H1("Live Sensor Dashboard (CSV)", style={'textAlign': 'center'}),
+    html.H1("40 Inch Data", style={'textAlign': 'center'}),
 
     dcc.Interval(id='interval-component', interval=1000, n_intervals=0),
 
@@ -33,12 +55,15 @@ app.layout = html.Div([
 )
 def update_graphs(n):
     if not os.path.exists(CSV_PATH):
-        return [go.Figure().update_layout(title=f'Sensor {i+1}') for i in range(8)]
+        return [go.Figure().update_layout(title=SENSOR_COLUMNS[i]) for i in range(8)]
 
     df = pd.read_csv(CSV_PATH)
-
-    # Use only the last MAX_POINTS entries for performance
+    df.columns = df.columns.str.strip()
     df = df.tail(MAX_POINTS)
+
+    #log("CSV columns: " + ", ".join(df.columns))
+    #log("Last row:\n" + df.tail(1).to_string(index=False))
+
 
     figures = []
     for i, col in enumerate(SENSOR_COLUMNS):
@@ -60,4 +85,4 @@ def update_graphs(n):
 
 # Run the Dash app
 if __name__ == '__main__':
-    app.run_server(debug=False, host='0.0.0.0', port=8050)
+    app.run(debug=False, host='0.0.0.0', port=8050)
