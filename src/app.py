@@ -1,6 +1,7 @@
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
+import dash_daq as daq
 import plotly.graph_objs as go
 import pandas as pd
 import os
@@ -54,6 +55,15 @@ def read_csv_cached():
 # Dash setup
 app = dash.Dash(__name__)
 app.title = "40 Inch Data"
+server = app.server
+
+# suffix_row = "_row"
+# suffix_button_id = "_button"
+# suffix_sparkline_graph = "_sparkline_graph"
+# suffix_count = "_count"
+# suffix_ooc_n = "_OOC_number"
+# suffix_ooc_g = "_OOC_graph"
+# suffix_indicator = "_indicator"
 
 app.layout = html.Div([
     html.H1("40 Inch Data", style={'textAlign': 'center'}),
