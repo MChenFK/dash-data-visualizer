@@ -8,7 +8,6 @@ import os
 import logging
 from functools import lru_cache
 
-# Rename logging flag to avoid conflict with logging module
 enable_logging = False
 
 # Logging setup
