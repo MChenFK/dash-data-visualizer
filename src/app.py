@@ -4,8 +4,11 @@ import pandas as pd
 import os
 import plotly.graph_objs as go
 
+FILE_NAME = "data.csv"
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 # Constants and data
-CSV_PATH = os.path.abspath(os.path.join(os.getcwd(), '..', 'data', 'data.csv'))
+CSV_PATH = os.path.abspath(os.path.join(os.getcwd(), 'data', FILE_NAME))
 SENSOR_COLUMNS = [
     'deposition rate (A/sec)',
     'power (%)',
@@ -28,15 +31,18 @@ def read_csv():
         return None
     return df.tail(MAX_POINTS)
 
-app = dash.Dash(__name__)
+app = dash.Dash(
+    __name__,
+    assets_folder=os.path.join(ROOT_DIR, 'assets')
+)
 server = app.server
-app.title = "40 Inch Data with Tabs"
+app.title = "40 Inch Coating Run Data"
 
 app.layout = html.Div([
     # Banner
     html.Div([
-        html.H1("40 Inch Manufacturing Data", style={'textAlign': 'center', 'padding': '10px'}),
-    ], style={'backgroundColor': '#003366', 'color': 'white'}),
+        html.H1("40 Inch Coating Run Data", style={'textAlign': 'center', 'padding': '10px'}),
+    ]),
 
     # Tabs
     dcc.Tabs(id='tabs', value='tab-all', children=[
@@ -119,12 +125,13 @@ def render_tab(tab, data):
         ])
 
     elif tab == 'tab-table':
-        # CSV Table view
         return html.Div([
+            html.Button("Download CSV", id="btn-download-csv"),
+            dcc.Download(id="download-csv"),
             dash_table.DataTable(
                 id='csv-table',
-                columns=[{"name": i, "id": i} for i in df.columns],
-                data=df.to_dict('records'),
+                columns=[],
+                data=[],
                 page_size=15,
                 style_table={'overflowX': 'auto'},
                 style_header={'backgroundColor': '#003366', 'color': 'white', 'fontWeight': 'bold'},
@@ -132,13 +139,36 @@ def render_tab(tab, data):
             )
         ])
 
+
+@app.callback(
+    Output("download-csv", "data"),
+    Input("btn-download-csv", "n_clicks"),
+    State('data-store', 'data'),
+    prevent_initial_call=True,
+)
+def generate_csv(n_clicks, data):
+    if not data:
+        return dash.no_update
+
+    # Convert data (list of dicts) back to DataFrame
+    df = pd.DataFrame(data)
+
+    # Use io.StringIO to create in-memory CSV string
+    csv_string = df.to_csv(index=False, encoding='utf-8')
+
+    return dict(content=csv_string, filename=FILE_NAME)
+
 @app.callback(
     [Output('all-graphs-container', 'children'),
      Output('all-graphs-container', 'style')],
     Input('graph-selector', 'value'),
-    State('data-store', 'data')
+    Input('data-store', 'data'),
+    Input('tabs', 'value')
 )
-def update_all_graphs(selected_graphs, data):
+def update_all_graphs(selected_graphs, data, current_tab):
+    if current_tab != 'tab-all':
+        raise dash.exceptions.PreventUpdate
+
     if not data:
         return html.Div("No data to display."), {}
     if not selected_graphs:
@@ -179,8 +209,6 @@ def update_all_graphs(selected_graphs, data):
         'boxSizing': 'border-box',
     }
 
-
-
     return graphs, container_style
 
 
@@ -213,9 +241,13 @@ def cycle_single_graph(prev_clicks, next_clicks, current):
 @app.callback(
     Output('single-graph', 'figure'),
     [Input('single-graph-dropdown', 'value'),
-     Input('data-store', 'data')]
+     Input('data-store', 'data'),
+     Input('tabs', 'value')]
 )
-def update_single_graph(selected_col, data):
+def update_single_graph(selected_col, data, current_tab):
+    if current_tab != 'tab-single':
+        raise dash.exceptions.PreventUpdate
+
     if not data or selected_col is None:
         return go.Figure()
     df = pd.DataFrame(data)
@@ -232,6 +264,22 @@ def update_single_graph(selected_col, data):
     fig.update_layout(title=selected_col, margin=dict(l=30, r=10, t=40, b=30))
 
     return fig
+
+@app.callback(
+    [Output('csv-table', 'data'),
+     Output('csv-table', 'columns')],
+    [Input('data-store', 'data'),
+     Input('tabs', 'value')]
+)
+def update_csv_table(data, current_tab):
+    if current_tab != 'tab-table' or not data:
+        raise dash.exceptions.PreventUpdate
+    df = pd.DataFrame(data)
+    columns = [{"name": i, "id": i} for i in df.columns]
+    return df.to_dict('records'), columns
+
+
+
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=8050)
