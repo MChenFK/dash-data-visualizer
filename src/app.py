@@ -54,6 +54,8 @@ app.layout = html.Div([
     # Store for current df (optional optimization)
     dcc.Store(id='data-store'),
 
+    dcc.Store(id='page-size-store', data=15),
+
     # Content container for tab content
     html.Div(id='tab-content'),
 
@@ -128,6 +130,14 @@ def render_tab(tab, data):
         return html.Div([
             html.Button("Download CSV", id="btn-download-csv"),
             dcc.Download(id="download-csv"),
+            html.Label("Rows per page:"),
+            dcc.Dropdown(
+                id='page-size-selector',
+                options=[{'label': str(n), 'value': n} for n in [10, 15, 25, 50, 100]],
+                value=15,
+                clearable=False,
+                style={'width': '150px'}
+            ),
             dash_table.DataTable(
                 id='csv-table',
                 columns=[],
@@ -266,20 +276,26 @@ def update_single_graph(selected_col, data, current_tab):
     return fig
 
 @app.callback(
-    [Output('csv-table', 'data'),
-     Output('csv-table', 'columns')],
-    [Input('data-store', 'data'),
-     Input('tabs', 'value')]
+    Output('page-size-store', 'data'),
+    Input('page-size-selector', 'value')
 )
-def update_csv_table(data, current_tab):
+def update_page_size(selected):
+    return selected
+
+@app.callback(
+    [Output('csv-table', 'data'),
+     Output('csv-table', 'columns'),
+     Output('csv-table', 'page_size')],
+    [Input('data-store', 'data'),
+     Input('tabs', 'value'),
+     Input('page-size-store', 'data')]
+)
+def update_csv_table(data, current_tab, page_size):
     if current_tab != 'tab-table' or not data:
         raise dash.exceptions.PreventUpdate
     df = pd.DataFrame(data)
     columns = [{"name": i, "id": i} for i in df.columns]
-    return df.to_dict('records'), columns
-
-
-
+    return df.to_dict('records'), columns, page_size
 
 if __name__ == '__main__':
     app.run(debug=False, host='0.0.0.0', port=8050)
