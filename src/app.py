@@ -1,6 +1,5 @@
 import dash
-from dash import dcc, html, Input, Output, State
-import dash_table
+from dash import dcc, html, Input, Output, State, dash_table
 import pandas as pd
 import os
 import plotly.graph_objs as go
@@ -96,7 +95,7 @@ def render_tab(tab, data):
             ], style={'padding': '10px'}),
             html.Div(id='all-graphs-container', style={
                 'display': 'grid',
-                'gridTemplateColumns': 'repeat(auto-fill, minmax(300px, 1fr))',
+                'gridTemplateColumns': 'repeat(auto-fit, minmax(350px, 1fr))',
                 'gap': '15px',
                 'padding': '10px'
             }),
@@ -173,11 +172,14 @@ def update_all_graphs(selected_graphs, data):
 
     container_style = {
         'display': 'grid',
-        'gridTemplateColumns': f'repeat({num_graphs}, minmax(300px, 1fr))',
+        'gridTemplateColumns': 'repeat(auto-fit, minmax(350px, 1fr))',
         'gap': '15px',
         'padding': '10px',
         'width': '100%',
+        'boxSizing': 'border-box',
     }
+
+
 
     return graphs, container_style
 
